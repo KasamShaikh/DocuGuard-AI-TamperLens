@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db
+backend/artifacts/
+
+# Secrets / local config — NEVER commit
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+*.pfx
+azure.json
+**/secrets.json
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
