@@ -16,7 +16,7 @@ pixel checks kept only as a low-weight supporting signal.
 
 ```mermaid
 flowchart TB
-    UI["Frontend<br/>React + TS · ICICI-style UI"]
+    UI["Frontend<br/>React + TS · web UI"]
     UI -->|"POST /api/analyze<br/>(PDF or image + doc_type)"| API
 
     subgraph Backend["Backend — FastAPI · async background job"]
@@ -69,7 +69,7 @@ flowchart TB
 ### Pipeline (text view)
 
 ```
-Frontend (React + TS, ICICI-style UI)
+Frontend (React + TS, web UI)
         │  POST /api/analyze (PDF or image + doc_type)
         ▼
 Backend (FastAPI, async background job)
