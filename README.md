@@ -66,8 +66,7 @@ flowchart TB
     SUM --> DB[("PostgreSQL<br/>scores · decisions · metadata")]
 ```
 
-<details>
-<summary>Text version of the pipeline</summary>
+### Pipeline (text view)
 
 ```
 Frontend (React + TS, ICICI-style UI)
@@ -102,8 +101,6 @@ Backend (FastAPI, async background job)
         ├─ Blob Storage  → original file + ELA heatmap artifacts
         └─ PostgreSQL    → analysis metadata, scores, decisions
 ```
-
-</details>
 
 ### Scoring
 
