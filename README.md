@@ -63,8 +63,16 @@ flowchart TB
     VJUDGE -. vision .-> AOAI["Azure OpenAI / AI Foundry"]
     SUM -. reasoning .-> AOAI
     SUM --> BLOB[("Blob Storage<br/>original file + ELA heatmaps")]
-    SUM --> DB[("PostgreSQL<br/>scores · decisions · metadata")]
+    SUM --> DB[("SQLite now / PostgreSQL recommended<br/>scores · decisions · metadata")]
 ```
+
+> **Data store status:** the deployed app currently uses **SQLite** (a file
+> inside the backend container) for scores/decisions/metadata. This is fine for
+> the PoC but is **ephemeral** — the data is reset whenever the container is
+> redeployed, restarted, or scaled. **Azure Database for PostgreSQL** is the
+> recommended durable store for production (the code switches over by setting
+> `DATABASE_URL`; no app changes needed). Uploaded files and ELA heatmaps are
+> already persisted in Blob Storage and are unaffected.
 
 ### Pipeline (text view)
 
@@ -99,7 +107,7 @@ Backend (FastAPI, async background job)
   └─ Evidence-only summary                                           (Azure AI Foundry / Azure OpenAI)
         │
         ├─ Blob Storage  → original file + ELA heatmap artifacts
-        └─ PostgreSQL    → analysis metadata, scores, decisions
+        └─ SQLite (now) / PostgreSQL (recommended) → metadata, scores, decisions
 ```
 
 ### Scoring
@@ -182,7 +190,9 @@ Open http://localhost:8080
 
 Copy `backend/.env.example` to `backend/.env` and fill in optional Azure services:
 - `BLOB_ACCOUNT_URL` — Azure Blob Storage (managed identity) for artifacts
-- `DATABASE_URL` — Postgres connection string for production
+- `DATABASE_URL` — database connection string. Defaults to local **SQLite**
+  (`sqlite+pysqlite:///./docuguard.db`); set a **PostgreSQL** URL for durable
+  production storage (recommended)
 - `DOCINTEL_ENDPOINT` — Azure Document Intelligence for OCR / field extraction
 - `FOUNDRY_ENDPOINT` + `FOUNDRY_DEPLOYMENT` — Azure AI Foundry / Azure OpenAI model
   for the evidence summary
