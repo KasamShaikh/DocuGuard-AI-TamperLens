@@ -126,6 +126,34 @@ detector evidence. When Document Intelligence / Foundry are not configured, the
 app runs fully locally (local file storage + SQLite + deterministic rule-based
 summary), and the vision judge degrades to a neutral score.
 
+## Run it on your own machine
+
+### Prerequisites
+- **Git**
+- **Python 3.11+**
+- **Node.js 18+** and npm
+- **Docker Desktop** (optional — only for the one-command Docker path)
+- Azure services are **optional**: the app runs fully locally without them
+  (local file storage + SQLite + deterministic rule-based summary).
+
+### 1. Fork & clone
+Fork the repo to your own GitHub account using the **Fork** button, then clone
+your fork (replace `<your-username>`):
+```powershell
+git clone https://github.com/<your-username>/DocuGuard-AI-TamperLens.git
+cd DocuGuard-AI-TamperLens
+```
+
+### 2. Configure (optional)
+To enable the Azure-backed features, copy the env template and fill in values
+(see [Configuration](#configuration)). Skip this step to run fully local:
+```powershell
+copy backend\.env.example backend\.env
+```
+
+### 3. Run
+Use either the manual setup below or the one-command Docker path.
+
 ## Run locally (no Azure required)
 
 Backend:
