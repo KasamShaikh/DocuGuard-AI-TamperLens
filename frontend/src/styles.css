@@ -204,6 +204,65 @@ body {
   cursor: not-allowed;
 }
 
+/* Second opinion */
+.second-opinion {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px dashed var(--brand-maroon);
+  border-radius: 12px;
+  background: rgba(110, 26, 44, 0.04);
+}
+
+.second-opinion-copy {
+  font-size: 13.5px;
+  color: var(--ink);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 11px 16px;
+  border: 1px solid var(--brand-maroon);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--brand-maroon);
+  font-weight: 700;
+  font-size: 14.5px;
+  cursor: pointer;
+  transition: background 0.15s, filter 0.15s, transform 0.05s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--brand-maroon);
+  color: #fff;
+}
+
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.second-opinion-hint {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.second-opinion-done {
+  font-size: 13.5px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.second-opinion-done .src-tag {
+  margin-right: 8px;
+}
+
 /* Result */
 .placeholder {
   color: var(--muted);

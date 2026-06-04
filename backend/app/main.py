@@ -9,7 +9,7 @@ from .config import get_settings
 from .db import SessionLocal, get_db, init_db
 from .models import Analysis
 from .schemas import AnalysisResult, AnalyzeAccepted
-from .services.analysis import run_analysis
+from .services.analysis import run_analysis, run_second_opinion
 from .storage import storage_service
 
 logger = logging.getLogger("docuguard.api")
@@ -98,6 +98,42 @@ def get_analysis(analysis_id: str, db: Session = Depends(get_db)) -> AnalysisRes
     if row is None:
         raise HTTPException(status_code=404, detail="Analysis not found.")
 
+    return _to_result(row)
+
+
+@app.post("/api/analyze/{analysis_id}/second-opinion", response_model=AnalysisResult)
+def second_opinion(analysis_id: str, db: Session = Depends(get_db)) -> AnalysisResult:
+    """Run the AI multimodal vision judge on demand for a single document.
+
+    This is the user-triggered "get a second opinion" action. It works even when
+    the global vision judge is disabled, but requires a configured Foundry /
+    OpenAI endpoint.
+    """
+    row = db.get(Analysis, analysis_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+    if row.status != "completed":
+        raise HTTPException(status_code=409, detail="Analysis is not completed yet.")
+    if not settings.foundry_endpoint:
+        raise HTTPException(
+            status_code=400,
+            detail="AI second opinion is unavailable: no Foundry / OpenAI endpoint configured.",
+        )
+
+    try:
+        run_second_opinion(analysis_id, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=410, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        logger.exception("Second-opinion analysis failed.")
+        raise HTTPException(status_code=500, detail=f"Second opinion failed: {exc}") from exc
+
+    db.refresh(row)
+    return _to_result(row)
+
+
+def _to_result(row: Analysis) -> AnalysisResult:
     return AnalysisResult(
         analysis_id=row.analysis_id,
         doc_type=row.doc_type,

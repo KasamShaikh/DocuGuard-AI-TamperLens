@@ -87,5 +87,27 @@ class StorageService:
             f.write(data)
         return f"file://{path}"
 
+    def load(self, uri: str) -> bytes | None:
+        """Read back bytes previously written by ``save``.
+
+        Supports the ``file://`` local URIs and Azure Blob URLs this service
+        produces. Returns ``None`` if the artifact can no longer be retrieved
+        (e.g. ephemeral local storage wiped on redeploy).
+        """
+        if not uri:
+            return None
+        try:
+            if uri.startswith("file://"):
+                path = uri[len("file://"):]
+                with open(path, "rb") as f:
+                    return f.read()
+            if self._mode == "blob" and self._container_client is not None:
+                name = uri.rsplit("/", 1)[-1]
+                blob = self._container_client.get_blob_client(name)
+                return blob.download_blob().readall()
+        except Exception:
+            logger.exception("Failed to load artifact for URI: %s", uri)
+        return None
+
 
 storage_service = StorageService()

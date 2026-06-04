@@ -126,14 +126,18 @@ VISION_JUDGE_PROMPT = (
 )
 
 
-def vision_judge(image_bytes: bytes, content_type: str = "image/png") -> dict:
+def vision_judge(image_bytes: bytes, content_type: str = "image/png", force: bool = False) -> dict:
     """Tier 4 — multimodal LLM that visually inspects the rendered page.
 
     Returns a detector-style dict so it plugs straight into the aggregator.
     No-op (neutral) when disabled or unconfigured. This is independent visual
     reasoning, NOT a narration of the other detectors.
+
+    ``force=True`` runs the judge on demand (e.g. a user-requested "second
+    opinion") even when ``ENABLE_VISION_JUDGE`` is off, as long as a Foundry /
+    OpenAI endpoint is configured.
     """
-    if not settings.enable_vision_judge or not settings.foundry_endpoint or not image_bytes:
+    if (not settings.enable_vision_judge and not force) or not settings.foundry_endpoint or not image_bytes:
         return {
             "name": "vision_judge",
             "score": 0.0,

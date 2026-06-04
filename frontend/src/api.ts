@@ -54,3 +54,18 @@ export async function getAnalysis(id: string): Promise<AnalysisResult> {
   if (!res.ok) throw new Error(`Fetch failed (${res.status})`);
   return res.json();
 }
+
+export async function requestSecondOpinion(id: string): Promise<AnalysisResult> {
+  const res = await fetch(`/api/analyze/${id}/second-opinion`, { method: "POST" });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail.detail || `Second opinion failed (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function getHealth(): Promise<{ foundry_configured?: boolean }> {
+  const res = await fetch("/api/health");
+  if (!res.ok) throw new Error(`Health check failed (${res.status})`);
+  return res.json();
+}

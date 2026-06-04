@@ -35,6 +35,19 @@ def _render_pdf_first_page(file_bytes: bytes) -> bytes | None:
         return None
 
 
+def _sniff_image_mime(data: bytes) -> str:
+    """Best-effort MIME sniff so the vision data URL is labelled correctly."""
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:4] in (b"II*\x00", b"MM\x00*"):
+        return "image/tiff"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/png"
+
+
 def run_analysis(
     analysis_id: str, file_bytes: bytes, db: Session, content_type: str = ""
 ) -> None:
@@ -133,3 +146,60 @@ def run_analysis(
             row.error = str(exc)
             row.completed_at = datetime.now(timezone.utc)
             db.commit()
+
+
+def run_second_opinion(analysis_id: str, db: Session) -> None:
+    """On-demand AI second opinion: run the Tier 4 vision judge for one document.
+
+    Re-fetches the original file, runs the multimodal judge (forced on, even when
+    ``ENABLE_VISION_JUDGE`` is globally off), then re-aggregates and re-summarizes
+    so the score, decision and summary reflect the new visual evidence.
+
+    Raises ``ValueError`` if the original document can no longer be retrieved.
+    """
+    row = db.get(Analysis, analysis_id)
+    if row is None:
+        raise ValueError("Analysis not found.")
+
+    file_bytes = storage_service.load(row.file_uri)
+    if not file_bytes:
+        raise ValueError("Original document is no longer available for re-analysis.")
+
+    is_pdf = file_bytes[:5] == b"%PDF-"
+    if is_pdf:
+        image_bytes = _render_pdf_first_page(file_bytes) or b""
+        image_mime = "image/png"
+    else:
+        image_bytes = file_bytes
+        image_mime = _sniff_image_mime(file_bytes)
+
+    if not image_bytes:
+        raise ValueError("Could not render the document to an image for visual review.")
+
+    # Force the judge on for this request regardless of the global flag.
+    vision_res = foundry.vision_judge(image_bytes, image_mime, force=True)
+
+    stored = json.loads(row.detector_scores or "{}")
+    detectors = [d for d in stored.get("detectors", []) if d.get("name") != "vision_judge"]
+    detectors.append(vision_res)
+
+    agg = aggregate(detectors)
+
+    ocr_summary = json.loads(row.ocr_summary or "{}")
+    evidence = {
+        "detectors": detectors,
+        "aggregate": agg,
+        "ocr": {
+            "available": ocr_summary.get("available", False),
+            "fields": ocr_summary.get("fields", {}),
+            "text_excerpt": "",
+        },
+    }
+    llm_summary = foundry.summarize(evidence)
+
+    row.detector_scores = json.dumps({"detectors": detectors, "aggregate": agg})
+    row.tamper_score = agg["tamper_score"]
+    row.decision = agg["decision"]
+    row.llm_summary = json.dumps(llm_summary)
+    row.completed_at = datetime.now(timezone.utc)
+    db.commit()

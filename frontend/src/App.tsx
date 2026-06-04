@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   AnalysisResult,
   getAnalysis,
+  getHealth,
+  requestSecondOpinion,
   submitAnalysis,
 } from "./api";
 
@@ -38,6 +40,9 @@ export default function App() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [secondOpinionLoading, setSecondOpinionLoading] = useState(false);
+  const [secondOpinionError, setSecondOpinionError] = useState("");
+  const [foundryConfigured, setFoundryConfigured] = useState(false);
   const pollRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -46,10 +51,17 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    getHealth()
+      .then((h) => setFoundryConfigured(Boolean(h.foundry_configured)))
+      .catch(() => setFoundryConfigured(false));
+  }, []);
+
   function onFile(f: File | null) {
     setFile(f);
     setResult(null);
     setError("");
+    setSecondOpinionError("");
     if (f && f.type.startsWith("image/")) setPreview(URL.createObjectURL(f));
     else setPreview("");
   }
@@ -58,6 +70,7 @@ export default function App() {
     if (!file) return;
     setLoading(true);
     setError("");
+    setSecondOpinionError("");
     setResult(null);
     try {
       const { analysis_id } = await submitAnalysis(file, docType);
@@ -79,8 +92,24 @@ export default function App() {
     }
   }
 
+  async function onSecondOpinion() {
+    if (!result) return;
+    setSecondOpinionLoading(true);
+    setSecondOpinionError("");
+    try {
+      const updated = await requestSecondOpinion(result.analysis_id);
+      setResult(updated);
+    } catch (e) {
+      setSecondOpinionError((e as Error).message);
+    } finally {
+      setSecondOpinionLoading(false);
+    }
+  }
+
   const detectors = result?.detector_scores?.detectors ?? [];
   const llm = result?.llm_summary;
+  const visionDetector = detectors.find((d) => d.name === "vision_judge");
+  const secondOpinionApplied = Boolean(visionDetector?.details?.enabled);
   const isProcessing =
     loading &&
     (!result || (result.status !== "completed" && result.status !== "failed"));
@@ -254,6 +283,48 @@ export default function App() {
                   )}
                 </div>
               )}
+
+              <div className="second-opinion">
+                {secondOpinionApplied ? (
+                  <div className="second-opinion-done">
+                    <span className="src-tag">AI vision</span>
+                    AI second opinion applied — the multimodal vision judge has
+                    reviewed this document and its findings are included below.
+                  </div>
+                ) : (
+                  <>
+                    <div className="second-opinion-copy">
+                      <strong>Want a stronger check?</strong> The base result uses
+                      fast, deterministic forensic detectors. You can ask an AI
+                      multimodal model to visually inspect the document and give an
+                      independent second opinion.
+                    </div>
+                    <button
+                      className="btn-secondary"
+                      disabled={secondOpinionLoading || !foundryConfigured}
+                      onClick={onSecondOpinion}
+                      title={
+                        foundryConfigured
+                          ? "Run the AI vision judge on this document"
+                          : "Unavailable: no AI model endpoint configured"
+                      }
+                    >
+                      {secondOpinionLoading
+                        ? "Consulting AI examiner…"
+                        : "🔎 Get AI Second Opinion"}
+                    </button>
+                    {!foundryConfigured && (
+                      <div className="second-opinion-hint">
+                        AI second opinion is unavailable — no model endpoint is
+                        configured for this environment.
+                      </div>
+                    )}
+                    {secondOpinionError && (
+                      <div className="error">{secondOpinionError}</div>
+                    )}
+                  </>
+                )}
+              </div>
 
               <div className="detectors">
                 <div className="detectors-title">Forensic Detectors</div>
