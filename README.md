@@ -14,6 +14,61 @@ pixel checks kept only as a low-weight supporting signal.
 
 ## Architecture
 
+```mermaid
+flowchart TB
+    UI["Frontend<br/>React + TS · ICICI-style UI"]
+    UI -->|"POST /api/analyze<br/>(PDF or image + doc_type)"| API
+
+    subgraph Backend["Backend — FastAPI · async background job"]
+        direction TB
+        API["API + job orchestrator"]
+        API --> RENDER{"PDF?"}
+        RENDER -->|"yes"| PYMUPDF["Render page 1 → image<br/>(PyMuPDF)"]
+        RENDER -->|"image"| PIX
+        PYMUPDF --> PIX
+
+        subgraph T1["Tier 1 · Document-native forensics (CPU)"]
+            PDFF["pdf_forensics<br/>incremental updates / xref,<br/>editor producers, XMP mismatch,<br/>rasterized-over-text"]
+            META["metadata<br/>EXIF / metadata consistency"]
+        end
+
+        subgraph T2["Tier 2 · Classical pixel checks (CPU, low weight)"]
+            PIX["compression — ELA + frequency"]
+            CLONE["copy_move — region cloning"]
+            AIGEN["ai_generation — synthetic heuristics"]
+        end
+
+        subgraph T3["Tier 3 · Layout & semantic validation (CPU)"]
+            OCR["OCR + field extraction"]
+            IDS["id_checksums<br/>IBAN / GSTIN / PAN / Luhn"]
+            CONT["content_consistency<br/>totals / dates / formats"]
+        end
+
+        subgraph T4["Tier 4 · Multimodal LLM judge (optional)"]
+            VJUDGE["vision_judge<br/>reasons over rendered page"]
+        end
+
+        API --> PDFF & META
+        API --> CLONE & AIGEN
+        API --> OCR --> IDS & CONT
+        PIX --> AGG
+        PYMUPDF --> VJUDGE
+
+        AGG["Score aggregation →<br/>decision: accept / review / reject"]
+        PDFF & META & CLONE & AIGEN & IDS & CONT & VJUDGE --> AGG
+        AGG --> SUM["Evidence-only summary<br/>(structured detector evidence only)"]
+    end
+
+    OCR -. OCR / fields .-> DOCINTEL["Azure Document Intelligence"]
+    VJUDGE -. vision .-> AOAI["Azure OpenAI / AI Foundry"]
+    SUM -. reasoning .-> AOAI
+    SUM --> BLOB[("Blob Storage<br/>original file + ELA heatmaps")]
+    SUM --> DB[("PostgreSQL<br/>scores · decisions · metadata")]
+```
+
+<details>
+<summary>Text version of the pipeline</summary>
+
 ```
 Frontend (React + TS, ICICI-style UI)
         │  POST /api/analyze (PDF or image + doc_type)
@@ -47,6 +102,8 @@ Backend (FastAPI, async background job)
         ├─ Blob Storage  → original file + ELA heatmap artifacts
         └─ PostgreSQL    → analysis metadata, scores, decisions
 ```
+
+</details>
 
 ### Scoring
 
