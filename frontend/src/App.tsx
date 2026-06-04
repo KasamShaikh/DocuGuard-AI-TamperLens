@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import {
   AnalysisResult,
   getAnalysis,
-  getHealth,
-  requestSecondOpinion,
+  // Option C (disabled): advisory second-opinion API helpers.
+  // getHealth,
+  // requestSecondOpinion,
   submitAnalysis,
 } from "./api";
 
@@ -40,9 +41,10 @@ export default function App() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [secondOpinionLoading, setSecondOpinionLoading] = useState(false);
-  const [secondOpinionError, setSecondOpinionError] = useState("");
-  const [foundryConfigured, setFoundryConfigured] = useState(false);
+  // Option C (disabled): advisory second-opinion UI state.
+  // const [secondOpinionLoading, setSecondOpinionLoading] = useState(false);
+  // const [secondOpinionError, setSecondOpinionError] = useState("");
+  // const [foundryConfigured, setFoundryConfigured] = useState(false);
   const pollRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -51,17 +53,19 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    getHealth()
-      .then((h) => setFoundryConfigured(Boolean(h.foundry_configured)))
-      .catch(() => setFoundryConfigured(false));
-  }, []);
+  // Option C (disabled): probe whether an AI model endpoint is configured to gate
+  // the second-opinion button.
+  // useEffect(() => {
+  //   getHealth()
+  //     .then((h) => setFoundryConfigured(Boolean(h.foundry_configured)))
+  //     .catch(() => setFoundryConfigured(false));
+  // }, []);
 
   function onFile(f: File | null) {
     setFile(f);
     setResult(null);
     setError("");
-    setSecondOpinionError("");
+    // setSecondOpinionError(""); // Option C (disabled)
     if (f && f.type.startsWith("image/")) setPreview(URL.createObjectURL(f));
     else setPreview("");
   }
@@ -70,7 +74,7 @@ export default function App() {
     if (!file) return;
     setLoading(true);
     setError("");
-    setSecondOpinionError("");
+    // setSecondOpinionError(""); // Option C (disabled)
     setResult(null);
     try {
       const { analysis_id } = await submitAnalysis(file, docType);
@@ -92,28 +96,32 @@ export default function App() {
     }
   }
 
-  async function onSecondOpinion() {
-    if (!result) return;
-    setSecondOpinionLoading(true);
-    setSecondOpinionError("");
-    try {
-      const updated = await requestSecondOpinion(result.analysis_id);
-      setResult(updated);
-    } catch (e) {
-      setSecondOpinionError((e as Error).message);
-    } finally {
-      setSecondOpinionLoading(false);
-    }
-  }
+  // Option C: invoked by the "Get AI Second Opinion" button. Advisory only — it
+  // refreshes the result with the AI vision verdict but does not alter the
+  // deterministic tamper score or decision already shown.
+  // Option C (disabled): user-triggered advisory second opinion.
+  // async function onSecondOpinion() {
+  //   if (!result) return;
+  //   setSecondOpinionLoading(true);
+  //   setSecondOpinionError("");
+  //   try {
+  //     const updated = await requestSecondOpinion(result.analysis_id);
+  //     setResult(updated);
+  //   } catch (e) {
+  //     setSecondOpinionError((e as Error).message);
+  //   } finally {
+  //     setSecondOpinionLoading(false);
+  //   }
+  // }
 
-  const allDetectors = result?.detector_scores?.detectors ?? [];
-  // The vision judge is advisory; never list it among the deterministic detectors.
-  const detectors = allDetectors.filter((d) => d.name !== "vision_judge");
+  // Option C (disabled): vision judge is part of the automated decision again and
+  // is listed with the other forensic detectors.
+  const detectors = result?.detector_scores?.detectors ?? [];
   const llm = result?.llm_summary;
-  const secondOpinion = result?.detector_scores?.second_opinion;
-  const secondOpinionApplied = Boolean(secondOpinion?.details?.enabled);
-  const sr = secondOpinion?.details?.suspect_regions;
-  const suspectRegions = Array.isArray(sr) ? (sr as string[]) : [];
+  // const secondOpinion = result?.detector_scores?.second_opinion;
+  // const secondOpinionApplied = Boolean(secondOpinion?.details?.enabled);
+  // const sr = secondOpinion?.details?.suspect_regions;
+  // const suspectRegions = Array.isArray(sr) ? (sr as string[]) : [];
   const isProcessing =
     loading &&
     (!result || (result.status !== "completed" && result.status !== "failed"));
@@ -288,6 +296,7 @@ export default function App() {
                 </div>
               )}
 
+              {/* Option C (disabled): advisory AI second-opinion panel/button.
               <div className="second-opinion">
                 {secondOpinionApplied ? (
                   <div className="second-opinion-result">
@@ -350,6 +359,7 @@ export default function App() {
                   </>
                 )}
               </div>
+              */}
 
               <div className="detectors">
                 <div className="detectors-title">Forensic Detectors</div>

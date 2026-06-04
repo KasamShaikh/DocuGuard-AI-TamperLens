@@ -107,11 +107,15 @@ def run_analysis(
         }
 
         detectors = [pdf_res, meta_res, comp_res, clone_res, ai_res, content_res, ids_res]
-        # Only fold the vision judge into the automated decision when it actually
-        # ran (ENABLE_VISION_JUDGE on). When it is off, it stays out of the score
-        # entirely so the on-demand "second opinion" remains purely advisory.
-        if vision_res.get("details", {}).get("enabled"):
-            detectors.append(vision_res)
+        # --- Option C (disabled) -------------------------------------------------
+        # Advisory-only behavior: fold the vision judge into the decision ONLY when
+        # ENABLE_VISION_JUDGE was on, leaving it out otherwise so the on-demand
+        # "second opinion" stayed purely advisory.
+        # if vision_res.get("details", {}).get("enabled"):
+        #     detectors.append(vision_res)
+        # -------------------------------------------------------------------------
+        # Vision judge is part of the automated decision again (flag true by default).
+        detectors.append(vision_res)
 
         # 6. Aggregate into combined score + decision.
         agg = aggregate(detectors)

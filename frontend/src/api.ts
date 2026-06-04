@@ -30,6 +30,8 @@ export interface AnalysisResult {
   detector_scores: {
     detectors?: DetectorResult[];
     aggregate?: AggregateResult;
+    // Option C: advisory AI vision verdict attached on demand. Lives under its
+    // own key and never feeds the deterministic aggregate/decision above.
     second_opinion?: DetectorResult;
   };
   ocr_summary: Record<string, unknown>;
@@ -59,6 +61,9 @@ export async function getAnalysis(id: string): Promise<AnalysisResult> {
   return res.json();
 }
 
+// Option C: user-triggered "strong second opinion". Forces the multimodal vision
+// judge to run and returns the result with the advisory verdict attached; the
+// original tamper score and decision are unchanged.
 export async function requestSecondOpinion(id: string): Promise<AnalysisResult> {
   const res = await fetch(`/api/analyze/${id}/second-opinion`, { method: "POST" });
   if (!res.ok) {

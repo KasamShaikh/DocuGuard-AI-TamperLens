@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     foundry_api_version: str = "2024-10-21"
 
     # Tier 4: multimodal LLM judge (vision reasoning over the rendered page).
-    enable_vision_judge: bool = False
+    # Enabled by default: the vision judge participates in the automated decision.
+    enable_vision_judge: bool = True
 
     # Scoring thresholds
     tamper_threshold_review: float = 0.4
