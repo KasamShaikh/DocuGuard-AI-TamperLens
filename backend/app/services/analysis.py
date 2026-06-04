@@ -106,10 +106,12 @@ def run_analysis(
             "reasons": ["No raster image to analyze."], "details": {"enabled": False},
         }
 
-        detectors = [
-            pdf_res, meta_res, comp_res, clone_res, ai_res,
-            content_res, ids_res, vision_res,
-        ]
+        detectors = [pdf_res, meta_res, comp_res, clone_res, ai_res, content_res, ids_res]
+        # Only fold the vision judge into the automated decision when it actually
+        # ran (ENABLE_VISION_JUDGE on). When it is off, it stays out of the score
+        # entirely so the on-demand "second opinion" remains purely advisory.
+        if vision_res.get("details", {}).get("enabled"):
+            detectors.append(vision_res)
 
         # 6. Aggregate into combined score + decision.
         agg = aggregate(detectors)
@@ -148,12 +150,15 @@ def run_analysis(
             db.commit()
 
 
-def run_second_opinion(analysis_id: str, db: Session) -> None:
-    """On-demand AI second opinion: run the Tier 4 vision judge for one document.
+def run_second_opinion(analysis_id: str, db: Session) -> dict:
+    """On-demand AI second opinion — advisory only.
 
-    Re-fetches the original file, runs the multimodal judge (forced on, even when
-    ``ENABLE_VISION_JUDGE`` is globally off), then re-aggregates and re-summarizes
-    so the score, decision and summary reflect the new visual evidence.
+    Re-fetches the original file and runs the Tier-4 multimodal vision judge
+    (forced on, even when ``ENABLE_VISION_JUDGE`` is globally off), then attaches
+    its findings to the result WITHOUT re-aggregating. The deterministic forensic
+    pipeline stays the system of record: ``tamper_score``, ``decision`` and the
+    risk summary are left untouched. This is an independent read a human reviewer
+    can weigh by hand.
 
     Raises ``ValueError`` if the original document can no longer be retrieved.
     """
@@ -179,27 +184,12 @@ def run_second_opinion(analysis_id: str, db: Session) -> None:
     # Force the judge on for this request regardless of the global flag.
     vision_res = foundry.vision_judge(image_bytes, image_mime, force=True)
 
+    # Advisory only: store the vision verdict alongside the result under a
+    # dedicated key. We do NOT touch the detectors array, aggregate, tamper_score,
+    # decision or llm_summary, so the decision matrix is fully preserved.
     stored = json.loads(row.detector_scores or "{}")
-    detectors = [d for d in stored.get("detectors", []) if d.get("name") != "vision_judge"]
-    detectors.append(vision_res)
-
-    agg = aggregate(detectors)
-
-    ocr_summary = json.loads(row.ocr_summary or "{}")
-    evidence = {
-        "detectors": detectors,
-        "aggregate": agg,
-        "ocr": {
-            "available": ocr_summary.get("available", False),
-            "fields": ocr_summary.get("fields", {}),
-            "text_excerpt": "",
-        },
-    }
-    llm_summary = foundry.summarize(evidence)
-
-    row.detector_scores = json.dumps({"detectors": detectors, "aggregate": agg})
-    row.tamper_score = agg["tamper_score"]
-    row.decision = agg["decision"]
-    row.llm_summary = json.dumps(llm_summary)
+    stored["second_opinion"] = vision_res
+    row.detector_scores = json.dumps(stored)
     row.completed_at = datetime.now(timezone.utc)
     db.commit()
+    return vision_res

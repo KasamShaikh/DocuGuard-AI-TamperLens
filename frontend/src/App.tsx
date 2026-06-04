@@ -106,10 +106,14 @@ export default function App() {
     }
   }
 
-  const detectors = result?.detector_scores?.detectors ?? [];
+  const allDetectors = result?.detector_scores?.detectors ?? [];
+  // The vision judge is advisory; never list it among the deterministic detectors.
+  const detectors = allDetectors.filter((d) => d.name !== "vision_judge");
   const llm = result?.llm_summary;
-  const visionDetector = detectors.find((d) => d.name === "vision_judge");
-  const secondOpinionApplied = Boolean(visionDetector?.details?.enabled);
+  const secondOpinion = result?.detector_scores?.second_opinion;
+  const secondOpinionApplied = Boolean(secondOpinion?.details?.enabled);
+  const sr = secondOpinion?.details?.suspect_regions;
+  const suspectRegions = Array.isArray(sr) ? (sr as string[]) : [];
   const isProcessing =
     loading &&
     (!result || (result.status !== "completed" && result.status !== "failed"));
@@ -286,10 +290,31 @@ export default function App() {
 
               <div className="second-opinion">
                 {secondOpinionApplied ? (
-                  <div className="second-opinion-done">
-                    <span className="src-tag">AI vision</span>
-                    AI second opinion applied — the multimodal vision judge has
-                    reviewed this document and its findings are included below.
+                  <div className="second-opinion-result">
+                    <div className="second-opinion-done">
+                      <span className="src-tag">AI vision</span>
+                      AI second opinion (advisory) — an independent multimodal model
+                      visually inspected this document. This does{" "}
+                      <strong>not</strong> change the tamper score or decision above.
+                    </div>
+                    <div className="second-opinion-verdict">
+                      Vision tamper likelihood:{" "}
+                      <strong>
+                        {((secondOpinion?.score ?? 0) * 100).toFixed(0)}/100
+                      </strong>
+                    </div>
+                    {secondOpinion?.reasons?.length ? (
+                      <ul className="reasons">
+                        {secondOpinion.reasons.map((r, i) => (
+                          <li key={i}>{r}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {suspectRegions.length > 0 && (
+                      <div className="second-opinion-regions">
+                        <strong>Suspect regions:</strong> {suspectRegions.join(", ")}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>

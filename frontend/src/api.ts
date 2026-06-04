@@ -27,7 +27,11 @@ export interface AnalysisResult {
   status: string;
   file_uri: string;
   overlay_uri: string;
-  detector_scores: { detectors?: DetectorResult[]; aggregate?: AggregateResult };
+  detector_scores: {
+    detectors?: DetectorResult[];
+    aggregate?: AggregateResult;
+    second_opinion?: DetectorResult;
+  };
   ocr_summary: Record<string, unknown>;
   tamper_score: number;
   decision: string;
