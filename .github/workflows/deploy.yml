@@ -28,6 +28,9 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Gated by the "production" environment: the run pauses here until a
+    # required reviewer (you) approves, then it deploys.
+    environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
