@@ -216,3 +216,32 @@ az acr build --registry docuguardksacr --image docuguard-backend:vN ./backend
 az containerapp update -n docuguard-api -g docuguard `
   --image docuguardksacr.azurecr.io/docuguard-backend:vN
 ```
+
+## CI/CD (push-to-deploy)
+
+Every push to `main` that touches `backend/`, `frontend/`, or the workflow runs
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml): it builds both
+images in ACR and rolls out new Container Apps revisions.
+
+**No secrets live in the repo.** Authentication uses **GitHub OIDC** (federated
+credentials) — GitHub presents a short-lived token, Microsoft Entra validates it
+against a trust scoped to this repo's `main` branch, and returns a temporary
+Azure token. Nothing is stored or can leak. App runtime values stay in **Azure
+Container App settings**, and Azure services are reached via **managed identity**.
+
+```mermaid
+flowchart LR
+    PUSH["git push to main"] --> WF["deploy.yml"]
+    WF -->|"OIDC token (no password)"| ENTRA["Entra app + federated credential"]
+    ENTRA -->|"Contributor on RG docuguard"| AZ["Azure"]
+    WF -->|"az acr build"| ACR["docuguardksacr"]
+    ACR --> BE["docuguard-api revision"]
+    ACR --> FE["docuguard revision"]
+```
+
+One-time setup creates an Entra app, grants it Contributor on **only** the
+`docuguard` resource group, and adds a federated credential trusting
+`repo:KasamShaikh/DocuGuard-AI-TamperLens:ref:refs/heads/main`. Three
+non-sensitive IDs (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
+`AZURE_SUBSCRIPTION_ID`) are stored as GitHub repo secrets — there is no
+client secret or password anywhere.
